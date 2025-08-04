@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>作業人員記録アプリ（丸ばつ入力）</title>
+    <style>
+        body {
+            font-family: 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        h1 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="date"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        .select-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        select {
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 2px solid #ddd;
+            font-size: 16px;
+        }
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        .summary, .result-area {
+            margin-top: 30px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+        }
+        .result-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        .result-table th, .result-table td {
+            border: 1px solid #ccc;
+            padding: 8px 4px;
+            text-align: center;
+        }
+        .result-table th {
+            background: #e3e7fa;
+        }
+        .totals-row {
+            font-weight: bold;
+            background: #e3e7fa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>作業人員記録アプリ（丸ばつ入力）</h1>
+        <form id="workForm">
+            <div class="form-group">
+                <label for="workDate">作業日 *</label>
+                <input type="date" id="workDate" required>
+            </div>
+            <div class="form-group select-group">
+                <label>時長</label>
+                <select id="jicho">
+                    <option value="">選択</option>
+                    <option value="○">○</option>
+                    <option value="×">×</option>
+                </select>
+            </div>
+            <div class="form-group select-group">
+                <label>鈴村</label>
+                <select id="suzumura">
+                    <option value="">選択</option>
+                    <option value="○">○</option>
+                    <option value="×">×</option>
+                </select>
+            </div>
+            <div class="form-group select-group">
+                <label>丸山</label>
+                <select id="maruyama">
+                    <option value="">選択</option>
+                    <option value="○">○</option>
+                    <option value="×">×</option>
+                </select>
+            </div>
+            <button type="submit" class="btn">記録する</button>
+        </form>
+        <button id="showResultBtn" class="btn">結果表示</button>
+        <button id="downloadCsvBtn" class="btn">スプレッドシート出力</button>
+        <div class="result-area" id="resultArea" style="display:none;"></div>
+    </div>
+    <script>
+        class WorkRecordApp {
+            constructor() {
+                this.records = JSON.parse(localStorage.getItem('workRecordsMaruBatsu')) || [];
+                this.init();
+            }
+            init() {
+                this.setDefaultDate();
+                document.getElementById('workForm').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.addRecord();
+                });
+                document.getElementById('showResultBtn').addEventListener('click', () => {
+                    this.showResult();
+                });
+                document.getElementById('downloadCsvBtn').addEventListener('click', () => {
+                    this.downloadCsv();
+                });
+            }
+            setDefaultDate() {
+                const today = new Date().toISOString().split('T')[0];
+                document.getElementById('workDate').value = today;
+            }
+            addRecord() {
+                const date = document.getElementById('workDate').value;
+                const jicho = document.getElementById('jicho').value;
+                const suzumura = document.getElementById('suzumura').value;
+                const maruyama = document.getElementById('maruyama').value;
+                if (!date || (!jicho && !suzumura && !maruyama)) {
+                    alert('日付といずれかの丸ばつを選択してください。');
+                    return;
+                }
+                // 既存の日付があれば上書き
+                const existing = this.records.find(r => r.date === date);
+                if (existing) {
+                    existing.jicho = jicho;
+                    existing.suzumura = suzumura;
+                    existing.maruyama = maruyama;
+                } else {
+                    this.records.push({ date, jicho, suzumura, maruyama });
+                }
+                this.save();
+                document.getElementById('workForm').reset();
+                this.setDefaultDate();
+                document.getElementById('resultArea').style.display = 'none';
+            }
+            save() {
+                localStorage.setItem('workRecordsMaruBatsu', JSON.stringify(this.records));
+            }
+            showResult() {
+                const resultArea = document.getElementById('resultArea');
+                if (this.records.length === 0) {
+                    resultArea.innerHTML = '<div style="color:#888;">記録がありません</div>';
+                    resultArea.style.display = 'block';
+                    return;
+                }
+                // 日付昇順で表示
+                const sorted = [...this.records].sort((a, b) => a.date.localeCompare(b.date));
+                let jichoTotal = 0, suzumuraTotal = 0, maruyamaTotal = 0;
+                let table = '<table class="result-table"><tr><th>日付</th><th>時長</th><th>鈴村</th><th>丸山</th></tr>';
+                sorted.forEach(r => {
+                    table += `<tr><td>${this.formatDate(r.date)}</td><td>${r.jicho || ''}</td><td>${r.suzumura || ''}</td><td>${r.maruyama || ''}</td></tr>`;
+                    if (r.jicho === '○') jichoTotal++;
+                    if (r.suzumura === '○') suzumuraTotal++;
+                    if (r.maruyama === '○') maruyamaTotal++;
+                });
+                table += `<tr class="totals-row"><td>○の合計</td><td>${jichoTotal}</td><td>${suzumuraTotal}</td><td>${maruyamaTotal}</td></tr>`;
+                table += '</table>';
+                // 全員分の合計
+                const allTotal = jichoTotal + suzumuraTotal + maruyamaTotal;
+                table += `<div style='margin-top:15px;font-weight:bold;'>全員分の○の合計：${allTotal}人</div>`;
+                resultArea.innerHTML = table;
+                resultArea.style.display = 'block';
+            }
+            downloadCsv() {
+                if (this.records.length === 0) {
+                    alert('記録がありません。');
+                    return;
+                }
+                
+                // CSVヘッダー
+                let csv = '日付,時長,鈴村,丸山\n';
+                
+                // 日付昇順でデータを追加
+                const sorted = [...this.records].sort((a, b) => a.date.localeCompare(b.date));
+                let jichoTotal = 0, suzumuraTotal = 0, maruyamaTotal = 0;
+                
+                sorted.forEach(r => {
+                    csv += `${this.formatDate(r.date)},${r.jicho || ''},${r.suzumura || ''},${r.maruyama || ''}\n`;
+                    if (r.jicho === '○') jichoTotal++;
+                    if (r.suzumura === '○') suzumuraTotal++;
+                    if (r.maruyama === '○') maruyamaTotal++;
+                });
+                
+                // 合計行を追加
+                const allTotal = jichoTotal + suzumuraTotal + maruyamaTotal;
+                csv += `○の合計,${jichoTotal},${suzumuraTotal},${maruyamaTotal}\n`;
+                csv += `全員分の○の合計,${allTotal},,\n`;
+                
+                // CSVファイルをダウンロード
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', `作業人員記録_${new Date().toISOString().split('T')[0]}.csv`);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+            formatDate(dateStr) {
+                const d = new Date(dateStr);
+                return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+            }
+        }
+        const app = new WorkRecordApp();
+    </script>
+</body>
+</html> 
