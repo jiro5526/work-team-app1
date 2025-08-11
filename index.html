@@ -1,250 +1,487 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>作業人員記録アプリ（丸ばつ入力）</title>
-    <style>
-        body {
-            font-family: 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            padding: 30px;
-        }
-        h1 {
-            text-align: center;
-            color: #667eea;
-            margin-bottom: 30px;
-        }
-        .form-group {
-            margin-bottom: 20px;
-        }
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: bold;
-            color: #555;
-        }
-        input[type="date"] {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            font-size: 16px;
-            margin-bottom: 10px;
-        }
-        .select-group {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        select {
-            padding: 8px 16px;
-            border-radius: 8px;
-            border: 2px solid #ddd;
-            font-size: 16px;
-        }
-        .btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 12px 25px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: bold;
-            width: 100%;
-            margin-bottom: 10px;
-        }
-        .summary, .result-area {
-            margin-top: 30px;
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 20px;
-            text-align: center;
-        }
-        .result-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-        }
-        .result-table th, .result-table td {
-            border: 1px solid #ccc;
-            padding: 8px 4px;
-            text-align: center;
-        }
-        .result-table th {
-            background: #e3e7fa;
-        }
-        .totals-row {
-            font-weight: bold;
-            background: #e3e7fa;
-        }
-    </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>作業人員記録アプリ（丸ばつ入力・改良版）</title>
+<style>
+  :root{
+    --bg1:#667eea; --bg2:#764ba2; --brand:#667eea;
+    --card:#fff; --muted:#555; --soft:#f8f9fa; --line:#ddd; --line2:#ccc;
+  }
+  body{
+    font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif;
+    background:linear-gradient(135deg,var(--bg1) 0%,var(--bg2) 100%);
+    min-height:100vh; padding:20px;
+  }
+  .container{max-width:800px;margin:0 auto;background:var(--card);
+    border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.1);padding:22px;}
+  h1{margin:0 0 18px;text-align:center;color:var(--brand);}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .form-group{display:flex;flex-direction:column;gap:8px}
+  label{font-weight:700;color:var(--muted)}
+  input[type="date"],input[type="month"],select{
+    width:100%;padding:10px 12px;border:2px solid var(--line);
+    border-radius:10px;font-size:16px;background:#fff;
+  }
+  .row{display:flex;gap:10px;align-items:center}
+  .btn{
+    background:linear-gradient(135deg,var(--bg1),var(--bg2));
+    color:#fff;padding:12px 16px;border:0;border-radius:10px;
+    cursor:pointer;font-weight:700;transition:transform .02s;
+  }
+  .btn:active{transform:scale(.99)}
+  .btn.secondary{background:#eef1ff;color:#3a3f7a;border:2px solid #dfe3ff}
+  .btn.ghost{background:#fff;color:#3a3f7a;border:2px solid #dfe3ff}
+  .btn.warn{background:#fff;color:#a33535;border:2px solid #f0c9c9}
+  .toolbar{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
+  .summary,.result-area{
+    margin-top:18px;background:var(--soft);border-radius:10px;padding:14px;
+  }
+  .kpis{display:flex;gap:10px;flex-wrap:wrap}
+  .kpi{flex:1 1 140px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center}
+  .kpi .v{font-size:20px;font-weight:800}
+  .result-table{width:100%;border-collapse:collapse;margin-top:10px}
+  .result-table th,.result-table td{
+    border:1px solid var(--line2);padding:8px 6px;text-align:center;vertical-align:middle
+  }
+  .result-table th{background:#e3e7fa}
+  .totals-row{font-weight:700;background:#e3e7fa}
+  .actions{display:flex;gap:6px;justify-content:center}
+  .hint{color:#666;font-size:12px;margin-top:6px}
+  .file{display:none}
+</style>
 </head>
 <body>
-    <div class="container">
-        <h1>作業人員記録アプリ（丸ばつ入力）</h1>
-        <form id="workForm">
-            <div class="form-group">
-                <label for="workDate">作業日 *</label>
-                <input type="date" id="workDate" required>
-            </div>
-            <div class="form-group select-group">
-                <label>時長</label>
-                <select id="jicho">
-                    <option value="">選択</option>
-                    <option value="○">○</option>
-                    <option value="×">×</option>
-                </select>
-            </div>
-            <div class="form-group select-group">
-                <label>鈴村</label>
-                <select id="suzumura">
-                    <option value="">選択</option>
-                    <option value="○">○</option>
-                    <option value="×">×</option>
-                </select>
-            </div>
-            <div class="form-group select-group">
-                <label>丸山</label>
-                <select id="maruyama">
-                    <option value="">選択</option>
-                    <option value="○">○</option>
-                    <option value="×">×</option>
-                </select>
-            </div>
-            <button type="submit" class="btn">記録する</button>
-        </form>
-        <button id="showResultBtn" class="btn">結果表示</button>
-        <button id="downloadCsvBtn" class="btn">スプレッドシート出力</button>
-        <div class="result-area" id="resultArea" style="display:none;"></div>
+  <div class="container">
+    <h1>作業人員記録アプリ（丸ばつ入力）</h1>
+
+    <form id="workForm">
+      <div class="grid">
+        <div class="form-group">
+          <label for="workDate">作業日 *</label>
+          <input type="date" id="workDate" required />
+          <div class="hint">既存日付は上書き保存されます</div>
+        </div>
+        <div class="form-group">
+          <label for="monthFilter">月で絞り込み</label>
+          <input type="month" id="monthFilter" />
+          <div class="hint">例：2025-08 を選ぶと8月分のみ表示</div>
+        </div>
+      </div>
+
+      <div class="grid" style="margin-top:8px">
+        <div class="form-group">
+          <label>時長</label>
+          <select id="jicho">
+            <option value="">選択</option>
+            <option value="○">○</option>
+            <option value="×">×</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>鈴村</label>
+          <select id="suzumura">
+            <option value="">選択</option>
+            <option value="○">○</option>
+            <option value="×">×</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>丸山</label>
+          <select id="maruyama">
+            <option value="">選択</option>
+            <option value="○">○</option>
+            <option value="×">×</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <button type="submit" class="btn">記録する</button>
+        <button type="button" id="showResultBtn" class="btn secondary">結果表示/更新</button>
+        <button type="button" id="downloadCsvBtn" class="btn ghost">CSV出力</button>
+        <button type="button" id="importCsvBtn" class="btn ghost">CSVインポート</button>
+        <input type="file" id="csvFile" class="file" accept=".csv,text/csv"/>
+        <button type="button" id="backupBtn" class="btn ghost">バックアップ保存(JSON)</button>
+        <button type="button" id="restoreBtn" class="btn ghost">バックアップ読込(JSON)</button>
+        <input type="file" id="jsonFile" class="file" accept=".json,application/json"/>
+        <button type="button" id="clearAllBtn" class="btn warn">全削除</button>
+      </div>
+    </form>
+
+    <div class="summary" id="summary" style="display:none;">
+      <div class="kpis">
+        <div class="kpi"><div>時長 ○/×</div><div class="v" id="kpiJicho">0/0</div></div>
+        <div class="kpi"><div>鈴村 ○/×</div><div class="v" id="kpiSuzumura">0/0</div></div>
+        <div class="kpi"><div>丸山 ○/×</div><div class="v" id="kpiMaruyama">0/0</div></div>
+        <div class="kpi"><div>全員 ○ 合計</div><div class="v" id="kpiAll">0</div></div>
+        <div class="kpi"><div>稼働率(○％)</div><div class="v" id="kpiRate">0%</div></div>
+      </div>
     </div>
-    <script>
-        class WorkRecordApp {
-            constructor() {
-                this.records = JSON.parse(localStorage.getItem('workRecordsMaruBatsu')) || [];
-                this.init();
-            }
-            init() {
-                this.setDefaultDate();
-                document.getElementById('workForm').addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    this.addRecord();
-                });
-                document.getElementById('showResultBtn').addEventListener('click', () => {
-                    this.showResult();
-                });
-                document.getElementById('downloadCsvBtn').addEventListener('click', () => {
-                    this.downloadCsv();
-                });
-            }
-            setDefaultDate() {
-                const today = new Date().toISOString().split('T')[0];
-                document.getElementById('workDate').value = today;
-            }
-            addRecord() {
-                const date = document.getElementById('workDate').value;
-                const jicho = document.getElementById('jicho').value;
-                const suzumura = document.getElementById('suzumura').value;
-                const maruyama = document.getElementById('maruyama').value;
-                if (!date || (!jicho && !suzumura && !maruyama)) {
-                    alert('日付といずれかの丸ばつを選択してください。');
-                    return;
-                }
-                // 既存の日付があれば上書き
-                const existing = this.records.find(r => r.date === date);
-                if (existing) {
-                    existing.jicho = jicho;
-                    existing.suzumura = suzumura;
-                    existing.maruyama = maruyama;
-                } else {
-                    this.records.push({ date, jicho, suzumura, maruyama });
-                }
-                this.save();
-                document.getElementById('workForm').reset();
-                this.setDefaultDate();
-                document.getElementById('resultArea').style.display = 'none';
-            }
-            save() {
-                localStorage.setItem('workRecordsMaruBatsu', JSON.stringify(this.records));
-            }
-            showResult() {
-                const resultArea = document.getElementById('resultArea');
-                if (this.records.length === 0) {
-                    resultArea.innerHTML = '<div style="color:#888;">記録がありません</div>';
-                    resultArea.style.display = 'block';
-                    return;
-                }
-                // 日付昇順で表示
-                const sorted = [...this.records].sort((a, b) => a.date.localeCompare(b.date));
-                let jichoTotal = 0, suzumuraTotal = 0, maruyamaTotal = 0;
-                let table = '<table class="result-table"><tr><th>日付</th><th>時長</th><th>鈴村</th><th>丸山</th></tr>';
-                sorted.forEach(r => {
-                    table += `<tr><td>${this.formatDate(r.date)}</td><td>${r.jicho || ''}</td><td>${r.suzumura || ''}</td><td>${r.maruyama || ''}</td></tr>`;
-                    if (r.jicho === '○') jichoTotal++;
-                    if (r.suzumura === '○') suzumuraTotal++;
-                    if (r.maruyama === '○') maruyamaTotal++;
-                });
-                table += `<tr class="totals-row"><td>○の合計</td><td>${jichoTotal}</td><td>${suzumuraTotal}</td><td>${maruyamaTotal}</td></tr>`;
-                table += '</table>';
-                // 全員分の合計
-                const allTotal = jichoTotal + suzumuraTotal + maruyamaTotal;
-                table += `<div style='margin-top:15px;font-weight:bold;'>全員分の○の合計：${allTotal}人</div>`;
-                resultArea.innerHTML = table;
-                resultArea.style.display = 'block';
-            }
-            downloadCsv() {
-                if (this.records.length === 0) {
-                    alert('記録がありません。');
-                    return;
-                }
-                
-                // CSVヘッダー
-                let csv = '日付,時長,鈴村,丸山\n';
-                
-                // 日付昇順でデータを追加
-                const sorted = [...this.records].sort((a, b) => a.date.localeCompare(b.date));
-                let jichoTotal = 0, suzumuraTotal = 0, maruyamaTotal = 0;
-                
-                sorted.forEach(r => {
-                    csv += `${this.formatDate(r.date)},${r.jicho || ''},${r.suzumura || ''},${r.maruyama || ''}\n`;
-                    if (r.jicho === '○') jichoTotal++;
-                    if (r.suzumura === '○') suzumuraTotal++;
-                    if (r.maruyama === '○') maruyamaTotal++;
-                });
-                
-                // 合計行を追加
-                const allTotal = jichoTotal + suzumuraTotal + maruyamaTotal;
-                csv += `○の合計,${jichoTotal},${suzumuraTotal},${maruyamaTotal}\n`;
-                csv += `全員分の○の合計,${allTotal},,\n`;
-                
-                // CSVファイルをダウンロード
-                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-                const link = document.createElement('a');
-                const url = URL.createObjectURL(blob);
-                link.setAttribute('href', url);
-                link.setAttribute('download', `作業人員記録_${new Date().toISOString().split('T')[0]}.csv`);
-                link.style.visibility = 'hidden';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            }
-            formatDate(dateStr) {
-                const d = new Date(dateStr);
-                return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
-            }
+
+    <div class="result-area" id="resultArea" style="display:none;"></div>
+  </div>
+
+<script>
+class WorkRecordApp {
+  constructor() {
+    this.KEY = 'workRecordsMaruBatsu';
+    this.records = this.load();
+    this.cacheEls();
+    this.init();
+  }
+
+  cacheEls(){
+    this.form = document.getElementById('workForm');
+    this.inputDate = document.getElementById('workDate');
+    this.selJicho = document.getElementById('jicho');
+    this.selSuzumura = document.getElementById('suzumura');
+    this.selMaruyama = document.getElementById('maruyama');
+    this.btnShow = document.getElementById('showResultBtn');
+    this.btnCsv = document.getElementById('downloadCsvBtn');
+    this.btnImport = document.getElementById('importCsvBtn');
+    this.csvFile = document.getElementById('csvFile');
+    this.btnBackup = document.getElementById('backupBtn');
+    this.btnRestore = document.getElementById('restoreBtn');
+    this.jsonFile = document.getElementById('jsonFile');
+    this.btnClearAll = document.getElementById('clearAllBtn');
+    this.resultArea = document.getElementById('resultArea');
+    this.summary = document.getElementById('summary');
+    this.monthFilter = document.getElementById('monthFilter');
+    // KPIs
+    this.kpiJicho = document.getElementById('kpiJicho');
+    this.kpiSuzumura = document.getElementById('kpiSuzumura');
+    this.kpiMaruyama = document.getElementById('kpiMaruyama');
+    this.kpiAll = document.getElementById('kpiAll');
+    this.kpiRate = document.getElementById('kpiRate');
+  }
+
+  init(){
+    this.setDefaultDate();
+    this.form.addEventListener('submit', (e)=>{ e.preventDefault(); this.addRecord(); });
+    this.btnShow.addEventListener('click', ()=> this.render());
+    this.btnCsv.addEventListener('click', ()=> this.downloadCsv());
+    this.btnImport.addEventListener('click', ()=> this.csvFile.click());
+    this.csvFile.addEventListener('change', (e)=> this.importCsv(e.target.files[0]));
+    this.btnBackup.addEventListener('click', ()=> this.downloadBackup());
+    this.btnRestore.addEventListener('click', ()=> this.jsonFile.click());
+    this.jsonFile.addEventListener('change', (e)=> this.restoreBackup(e.target.files[0]));
+    this.btnClearAll.addEventListener('click', ()=> this.clearAll());
+    this.monthFilter.addEventListener('change', ()=> this.render());
+
+    // 行内の編集・削除は委譲
+    this.resultArea.addEventListener('click', (e)=>{
+      const btn = e.target.closest('button[data-action]');
+      if(!btn) return;
+      const action = btn.dataset.action;
+      const date = btn.dataset.date;
+      if(action === 'edit') this.rowToEdit(date);
+      if(action === 'save') this.saveRow(date);
+      if(action === 'cancel') this.render(); // 再描画で編集解除
+      if(action === 'del') this.deleteByDate(date);
+    });
+
+    // 初回描画
+    this.render();
+  }
+
+  load(){
+    try{
+      return JSON.parse(localStorage.getItem(this.KEY)) || [];
+    }catch(e){
+      console.warn('load failed', e);
+      return [];
+    }
+  }
+  save(){
+    localStorage.setItem(this.KEY, JSON.stringify(this.records));
+  }
+
+  setDefaultDate(){
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = ('0'+(today.getMonth()+1)).slice(-2);
+    const d = ('0'+today.getDate()).slice(-2);
+    this.inputDate.value = `${y}-${m}-${d}`;
+    if(!this.monthFilter.value) this.monthFilter.value = `${y}-${m}`;
+  }
+
+  addRecord(){
+    const date = this.inputDate.value;
+    const jicho = this.selJicho.value;
+    const suzumura = this.selSuzumura.value;
+    const maruyama = this.selMaruyama.value;
+    if(!date || (!jicho && !suzumura && !maruyama)){
+      alert('日付といずれかの丸ばつを選択してください。');
+      return;
+    }
+    const idx = this.records.findIndex(r=> r.date === date);
+    const data = {date, jicho, suzumura, maruyama};
+    if(idx >= 0) this.records[idx] = data;
+    else this.records.push(data);
+    this.save();
+    this.form.reset();
+    this.setDefaultDate();
+    this.render();
+  }
+
+  deleteByDate(date){
+    if(!confirm(`${this.formatDateJa(date)} の行を削除しますか？`)) return;
+    this.records = this.records.filter(r=> r.date !== date);
+    this.save();
+    this.render();
+  }
+
+  clearAll(){
+    if(!this.records.length){ alert('記録がありません。'); return; }
+    if(!confirm('全データを削除します。よろしいですか？')) return;
+    this.records = [];
+    this.save();
+    this.render();
+  }
+
+  getFiltered(){
+    const val = this.monthFilter.value; // YYYY-MM
+    if(!val) return [...this.records];
+    return this.records.filter(r=> (r.date||'').startsWith(val));
+  }
+
+  formatDateJa(dateStr){
+    // 表示は日本語＋曜日、内部はISOのまま
+    const d = new Date(dateStr+'T00:00:00');
+    const fmt = d.toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'short'});
+    return fmt.replace('年','年').replace('月','月').replace('日','日');
+  }
+
+  toRowCells(r){
+    return `
+      <td>${this.formatDateJa(r.date)}</td>
+      <td>${r.jicho||''}</td>
+      <td>${r.suzumura||''}</td>
+      <td>${r.maruyama||''}</td>
+      <td class="actions">
+        <button class="btn ghost" data-action="edit" data-date="${r.date}">編集</button>
+        <button class="btn warn" data-action="del" data-date="${r.date}">削除</button>
+      </td>
+    `;
+  }
+
+  rowToEdit(date){
+    // 編集モードに差し替え
+    const data = this.records.find(r=> r.date === date);
+    if(!data) return;
+    const table = this.resultArea.querySelector('table');
+    const rows = table.querySelectorAll('tbody tr');
+    rows.forEach(tr=>{
+      const d = tr.dataset.date;
+      if(d !== date) return;
+      tr.innerHTML = `
+        <td>${this.formatDateJa(date)}</td>
+        <td>${this.selectHtml('edit_jicho', data.jicho)}</td>
+        <td>${this.selectHtml('edit_suzumura', data.suzumura)}</td>
+        <td>${this.selectHtml('edit_maruyama', data.maruyama)}</td>
+        <td class="actions">
+          <button class="btn" data-action="save" data-date="${date}">保存</button>
+          <button class="btn ghost" data-action="cancel" data-date="${date}">取消</button>
+        </td>
+      `;
+    });
+  }
+
+  selectHtml(id, val){
+    const opt = (v,t)=>`<option value="${v}" ${val===v?'selected':''}>${t}</option>`;
+    return `<select id="${id}">
+      ${opt('','選択')}${opt('○','○')}${opt('×','×')}
+    </select>`;
+  }
+
+  saveRow(date){
+    const ej = document.getElementById('edit_jicho')?.value ?? '';
+    const es = document.getElementById('edit_suzumura')?.value ?? '';
+    const em = document.getElementById('edit_maruyama')?.value ?? '';
+    const idx = this.records.findIndex(r=> r.date === date);
+    if(idx<0) return;
+    this.records[idx] = {date, jicho:ej, suzumura:es, maruyama:em};
+    this.save();
+    this.render();
+  }
+
+  render(){
+    const list = [...this.getFiltered()].sort((a,b)=> a.date.localeCompare(b.date));
+    const has = list.length>0;
+    // KPI計算
+    const sum = (name,mark)=> list.reduce((acc,r)=> acc + (r[name]===mark?1:0),0);
+    const jO = sum('jicho','○'), jX = sum('jicho','×');
+    const sO = sum('suzumura','○'), sX = sum('suzumura','×');
+    const mO = sum('maruyama','○'), mX = sum('maruyama','×');
+    const allO = jO + sO + mO;
+    const totalMarks = jO+jX + sO+sX + mO+mX;
+    const rate = totalMarks ? Math.round((allO/totalMarks)*100) : 0;
+
+    // KPI表示
+    this.kpiJicho.textContent = `${jO}/${jX}`;
+    this.kpiSuzumura.textContent = `${sO}/${sX}`;
+    this.kpiMaruyama.textContent = `${mO}/${mX}`;
+    this.kpiAll.textContent = String(allO);
+    this.kpiRate.textContent = `${rate}%`;
+    this.summary.style.display = 'block';
+
+    if(!has){
+      this.resultArea.innerHTML = `<div style="color:#888;">記録がありません</div>`;
+      this.resultArea.style.display = 'block';
+      return;
+    }
+
+    let html = `
+      <table class="result-table">
+        <thead>
+          <tr>
+            <th>日付(曜)</th><th>時長</th><th>鈴村</th><th>丸山</th><th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${list.map(r=> `<tr data-date="${r.date}">${this.toRowCells(r)}</tr>`).join('')}
+          <tr class="totals-row">
+            <td>○/× 合計</td>
+            <td>${jO}/${jX}</td>
+            <td>${sO}/${sX}</td>
+            <td>${mO}/${mX}</td>
+            <td>稼働率(○)：${rate}%</td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="margin-top:8px;font-weight:700;">全員分の○の合計：${allO}人</div>
+    `;
+    this.resultArea.innerHTML = html;
+    this.resultArea.style.display = 'block';
+  }
+
+  downloadCsv(){
+    if(!this.records.length){ alert('記録がありません。'); return; }
+    let csv = '日付,時長,鈴村,丸山\n';
+    const sorted = [...this.records].sort((a,b)=> a.date.localeCompare(b.date));
+    let jO=0,sO=0,mO=0;
+    let jX=0,sX=0,mX=0;
+    sorted.forEach(r=>{
+      csv += `${this.formatDateForCsv(r.date)},${r.jicho||''},${r.suzumura||''},${r.maruyama||''}\n`;
+      if(r.jicho==='○') jO++; if(r.jicho==='×') jX++;
+      if(r.suzumura==='○') sO++; if(r.suzumura==='×') sX++;
+      if(r.maruyama==='○') mO++; if(r.maruyama==='×') mX++;
+    });
+    const allO = jO+sO+mO;
+    const totalMarks = jO+jX + sO+sX + mO+mX;
+    const rate = totalMarks ? Math.round((allO/totalMarks)*100) : 0;
+
+    csv += `○の合計,${jO},${sO},${mO}\n`;
+    csv += `×の合計,${jX},${sX},${mX}\n`;
+    csv += `全員分の○の合計,${allO},,\n`;
+    csv += `稼働率(○％),${rate}%,,\n`;
+
+    this.downloadBlob(csv, `作業人員記録_${this.todayIso()}.csv`, 'text/csv;charset=utf-8;');
+  }
+
+  importCsv(file){
+    if(!file){ return; }
+    const fr = new FileReader();
+    fr.onload = ()=>{
+      try{
+        const lines = String(fr.result).split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+        const header = lines.shift();
+        if(!/日付,時長,鈴村,丸山/.test(header)){
+          alert('CSVヘッダーが不正です。「日付,時長,鈴村,丸山」である必要があります。');
+          return;
         }
-        const app = new WorkRecordApp();
-    </script>
+        let count=0;
+        for(const line of lines){
+          const cols = line.split(',');
+          if(cols.length<4) continue;
+          const date = this.parseCsvDate(cols[0]);
+          if(!date) continue;
+          const rec = {
+            date,
+            jicho: cols[1]||'',
+            suzumura: cols[2]||'',
+            maruyama: cols[3]||''
+          };
+          const idx = this.records.findIndex(r=> r.date === date);
+          if(idx>=0) this.records[idx]=rec; else this.records.push(rec);
+          count++;
+        }
+        this.save();
+        alert(`CSVを取り込みました：${count}件`);
+        this.render();
+      }catch(e){
+        console.error(e);
+        alert('CSVの取り込みに失敗しました。');
+      }finally{
+        this.csvFile.value = '';
+      }
+    };
+    fr.readAsText(file,'utf-8');
+  }
+
+  parseCsvDate(s){
+    // 受け取りは「YYYY年M月D日」か「YYYY-MM-DD」を許容
+    s = s.trim();
+    if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    const m = s.match(/^(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日/);
+    if(!m) return '';
+    const y = m[1], mo=('0'+m[2]).slice(-2), d=('0'+m[3]).slice(-2);
+    return `${y}-${mo}-${d}`;
+  }
+
+  formatDateForCsv(dateStr){
+    // CSVは「YYYY年M月D日」で出す（読みやすさ重視）
+    const d = new Date(dateStr+'T00:00:00');
+    return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;
+  }
+
+  downloadBackup(){
+    const json = JSON.stringify(this.records, null, 2);
+    this.downloadBlob(json, `workRecords_backup_${this.todayIso()}.json`, 'application/json');
+  }
+
+  restoreBackup(file){
+    if(!file){ return; }
+    const fr = new FileReader();
+    fr.onload = ()=>{
+      try{
+        const data = JSON.parse(String(fr.result));
+        if(!Array.isArray(data)) throw new Error('形式不正');
+        // 軽い妥当性確認
+        data.forEach(r=>{
+          if(typeof r.date!=='string') throw new Error('date不正');
+        });
+        if(!confirm('バックアップで現在のデータを上書きします。よろしいですか？')) return;
+        this.records = data;
+        this.save();
+        alert('バックアップを復元しました。');
+        this.render();
+      }catch(e){
+        console.error(e);
+        alert('バックアップの復元に失敗しました。');
+      }finally{
+        this.jsonFile.value='';
+      }
+    };
+    fr.readAsText(file,'utf-8');
+  }
+
+  downloadBlob(content, filename, type){
+    const blob = new Blob([content], {type});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; document.body.appendChild(a);
+    a.click(); a.remove(); URL.revokeObjectURL(url);
+  }
+
+  todayIso(){
+    return new Date().toISOString().split('T')[0];
+  }
+}
+
+const app = new WorkRecordApp();
+</script>
 </body>
-</html> 
+</html>
