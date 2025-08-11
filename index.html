@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>作業人員記録アプリ（○△×対応版）</title>
+<title>作業人員記録アプリ（○△×・共有対応）</title>
 <style>
   body{
     font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif;
@@ -46,7 +46,7 @@
 </head>
 <body>
 <div class="container">
-  <h1>作業人員記録アプリ（○△×対応版）</h1>
+  <h1>作業人員記録アプリ（○△×対応）</h1>
   <form id="workForm">
     <div class="form-group">
       <label for="workDate">作業日 *</label>
@@ -86,6 +86,165 @@
   <div class="result-area" id="resultArea" style="display:none;"></div>
 </div>
 
-通常表示ページ
+<script>
+class WorkRecordApp {
+  constructor() {
+    // ▼あなたのApps ScriptのURLとキーを設定
+    this.API_URL = 'https://script.google.com/macros/s/AKfycbyKAO3LKTa-JS8aRVe3tB0oVge69om3N0i4bgAUAmPnRh9oyJ_7j7ZP5uFy9bieJ0PX/exec';
+    this.API_KEY = 'jiro001';
+
+    this.records = [];
+    this.init();
+  }
+
+  async init() {
+    this.cacheEls();
+    this.setDefaultDate();
+
+    this.form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await this.addOrUpdateRecord();
+    });
+    this.btnShow.addEventListener('click', () => this.showResult());
+    this.btnCsv.addEventListener('click', () => this.downloadCsv());
+
+    await this.syncFromServer();
+    this.showResult();
+  }
+
+  cacheEls(){
+    this.form = document.getElementById('workForm');
+    this.inputDate = document.getElementById('workDate');
+    this.selJ = document.getElementById('jicho');
+    this.selS = document.getElementById('suzumura');
+    this.selM = document.getElementById('maruyama');
+    this.btnShow = document.getElementById('showResultBtn');
+    this.btnCsv = document.getElementById('downloadCsvBtn');
+    this.resultArea = document.getElementById('resultArea');
+  }
+
+  setDefaultDate(){
+    const today = new Date().toISOString().split('T')[0];
+    this.inputDate.value = today;
+  }
+
+  async fetchAll(){
+    const url = `${this.API_URL}?action=read&key=${encodeURIComponent(this.API_KEY)}`;
+    const res = await fetch(url, { method: 'GET' });
+    if(!res.ok) throw new Error('fetchAll failed');
+    const data = await res.json();
+    return Array.isArray(data.records) ? data.records : [];
+  }
+
+  async pushAll(records){
+    const url = `${this.API_URL}?key=${encodeURIComponent(this.API_KEY)}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ records })
+    });
+    if(!res.ok) throw new Error('pushAll failed');
+    return res.json();
+  }
+
+  async syncFromServer(){
+    try{
+      this.records = await this.fetchAll();
+    }catch(e){
+      console.error(e);
+      alert('サーバから読み込みに失敗しました。');
+    }
+  }
+
+  async addOrUpdateRecord(){
+    const date = this.inputDate.value;
+    const j = this.selJ.value;
+    const s = this.selS.value;
+    const m = this.selM.value;
+    if(!date || (!j && !s && !m)){
+      alert('日付といずれかの記号を選択してください。');
+      return;
+    }
+    await this.syncFromServer();
+
+    const idx = this.records.findIndex(r => r.date === date);
+    const newRec = { date, jicho: j, suzumura: s, maruyama: m };
+    if(idx >= 0) this.records[idx] = newRec;
+    else this.records.push(newRec);
+
+    try{
+      await this.pushAll(this.records);
+      this.form.reset();
+      this.setDefaultDate();
+      this.showResult();
+    }catch(e){
+      console.error(e);
+      alert('サーバ保存に失敗しました。');
+    }
+  }
+
+  calcValue(mark){ return mark==='○' ? 1 : mark==='△' ? 0.5 : 0; }
+
+  showResult(){
+    const area = this.resultArea;
+    if(!this.records.length){
+      area.innerHTML = '<div style="color:#888;">記録がありません</div>';
+      area.style.display = 'block';
+      return;
+    }
+    const sorted = [...this.records].sort((a,b)=> a.date.localeCompare(b.date));
+    let jTot=0, sTot=0, mTot=0;
+
+    let html = '<table class="result-table"><tr><th>日付</th><th>時長</th><th>鈴村</th><th>丸山</th></tr>';
+    for(const r of sorted){
+      html += `<tr>
+        <td>${this.formatDate(r.date)}</td>
+        <td>${r.jicho||''}</td>
+        <td>${r.suzumura||''}</td>
+        <td>${r.maruyama||''}</td>
+      </tr>`;
+      jTot += this.calcValue(r.jicho);
+      sTot += this.calcValue(r.suzumura);
+      mTot += this.calcValue(r.maruyama);
+    }
+    const all = jTot + sTot + mTot;
+    html += `<tr class="totals-row"><td>合計</td><td>${jTot}</td><td>${sTot}</td><td>${mTot}</td></tr>`;
+    html += '</table>';
+    html += `<div style="margin-top:15px;font-weight:bold;">全員分の合計（○=1, △=0.5）：${all}人</div>`;
+
+    area.innerHTML = html;
+    area.style.display = 'block';
+  }
+
+  downloadCsv(){
+    if(!this.records.length){ alert('記録がありません。'); return; }
+    let csv = '日付,時長,鈴村,丸山\n';
+    const sorted = [...this.records].sort((a,b)=> a.date.localeCompare(b.date));
+    let j=0,s=0,m=0;
+    for(const r of sorted){
+      csv += `${this.formatDate(r.date)},${r.jicho||''},${r.suzumura||''},${r.maruyama||''}\n`;
+      j += this.calcValue(r.jicho);
+      s += this.calcValue(r.suzumura);
+      m += this.calcValue(r.maruyama);
+    }
+    const all = j+s+m;
+    csv += `合計,${j},${s},${m}\n`;
+    csv += `全員分の合計（○=1, △=0.5）,${all},,\n`;
+
+    const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `作業人員記録_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  }
+
+  formatDate(s){
+    const d = new Date(s);
+    return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;
+  }
+}
+
+const app = new WorkRecordApp();
+</script>
 </body>
 </html>
