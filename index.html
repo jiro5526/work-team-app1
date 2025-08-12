@@ -70,161 +70,128 @@
   </div>
 
 <script>
-class WorkRecordApp {
+class MyApp {
   constructor(){
-    // ★ここをあなたの値に置き換えてください（/exec と APIキー）
     this.API_URL = 'https://script.google.com/macros/s/AKfycbw3yTeNBdcqUtSrbxNbeEUFf2n_FxBmUEc1JBesX9IQfP-k6a6DleZ88D8sFswwbJTA/exec';
     this.API_KEY = 'mySecretKey123';
 
     this.records = [];
-    this.init();
+    this.tableBody = document.querySelector('#dataTable tbody');
+    this.inputDate = document.getElementById('inputDate');
+    this.inputName = document.getElementById('inputName');
+    this.inputAmount = document.getElementById('inputAmount');
+
+    document.getElementById('btnAdd').addEventListener('click', () => this.addOrUpdateRecord());
+    document.getElementById('btnSync').addEventListener('click', () => this.syncFromServer());
+
+    this.syncFromServer();
   }
 
-  async init(){
-    this.cacheEls();
-    this.setDefaultDate();
-
-    this.form.addEventListener('submit', async (e)=>{ e.preventDefault(); await this.addOrUpdateRecord(); });
-    this.btnShow.addEventListener('click', ()=> this.showResult());
-    this.btnCsv.addEventListener('click', ()=> this.downloadCsv());
-
-    await this.syncFromServer();
-    this.showResult();
+  // 日付を統一して YYYY-MM-DD に変換
+  normalizeDate(s){
+    if (!s) return '';
+    // すでに YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    // YYYY/MM/DD → YYYY-MM-DD
+    if (/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(s)) {
+      const [y,m,d] = s.split('/');
+      return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    }
+    // Date文字列を解釈
+    const d = new Date(s);
+    if (!isNaN(d)) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth()+1).padStart(2,'0');
+      const day = String(d.getDate()).padStart(2,'0');
+      return `${y}-${m}-${day}`;
+    }
+    return s; // 不明形式はそのまま
   }
 
-  cacheEls(){
-    this.form = document.getElementById('workForm');
-    this.inputDate = document.getElementById('workDate');
-    this.selJ = document.getElementById('jicho');
-    this.selS = document.getElementById('suzumura');
-    this.selM = document.getElementById('maruyama');
-    this.btnShow = document.getElementById('showResultBtn');
-    this.btnCsv = document.getElementById('downloadCsvBtn');
-    this.resultArea = document.getElementById('resultArea');
-  }
-
-  setDefaultDate(){
-    const today = new Date().toISOString().split('T')[0];
-    this.inputDate.value = today;
-  }
-
-  // --- 日付を「YYYY/MM/DD (曜)」で返す（r.dateは"YYYY-MM-DD"想定） ---
+  // 曜日付き表示
   formatYobi(yyyyMmDd){
-    const [y,m,d] = (yyyyMmDd||'').split('-').map(Number);
+    const norm = this.normalizeDate(yyyyMmDd);
+    const [y,m,d] = norm.split('-').map(Number);
     if(!y||!m||!d) return yyyyMmDd || '';
     const dt = new Date(y, m-1, d);
     const w = '日月火水木金土'[dt.getDay()];
-    const mm = String(m).padStart(2,'0');
-    const dd = String(d).padStart(2,'0');
-    return `${y}/${mm}/${dd} (${w})`;
+    return `${y}/${String(m).padStart(2,'0')}/${String(d).padStart(2,'0')} (${w})`;
   }
 
-  // --- サーバ通信 ---
   async fetchAll(){
-    const url = `${this.API_URL}?action=read&key=${encodeURIComponent(this.API_KEY)}`;
-    const res = await fetch(url, { method:'GET' });
-    if(!res.ok){
-      const t = await res.text();
-      throw new Error(`GET ${res.status} ${res.statusText} :: ${t.slice(0,200)}`);
-    }
-    const data = await res.json();
-    return Array.isArray(data.records) ? data.records : [];
+    const res = await fetch(`${this.API_URL}?key=${this.API_KEY}`);
+    if(!res.ok) throw new Error('HTTPエラー');
+    return await res.json();
   }
 
-  async pushAll(records){
-    const url = `${this.API_URL}?key=${encodeURIComponent(this.API_KEY)}`;
-    const res = await fetch(url, {
-      method:'POST',
-      headers:{ 'Content-Type':'text/plain' }, // プリフライト回避
-      body: JSON.stringify({ records })
+  async pushAll(data){
+    const res = await fetch(this.API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: this.API_KEY, records: data })
     });
-    if(!res.ok){
-      const t = await res.text();
-      throw new Error(`POST ${res.status} ${res.statusText} :: ${t.slice(0,200)}`);
-    }
-    return res.json();
+    if(!res.ok) throw new Error('HTTPエラー');
+    return await res.json();
   }
 
   async syncFromServer(){
     try{
-      this.records = await this.fetchAll();
+      const fetched = await this.fetchAll();
+      const normalized = fetched.map(r => ({ ...r, date: this.normalizeDate(r.date) }));
+
+      // サーバの日付が変わっていたら書き戻す
+      const changed =
+        JSON.stringify(fetched.map(r=>r.date)) !== JSON.stringify(normalized.map(r=>r.date));
+      if (changed) {
+        await this.pushAll(normalized);
+      }
+      this.records = normalized;
+      this.render();
     }catch(e){
       alert('サーバから読み込みに失敗しました。\n' + e.message);
     }
   }
 
   async addOrUpdateRecord(){
-    const date = this.inputDate.value;
-    const j = this.selJ.value, s = this.selS.value, m = this.selM.value;
-    if(!date || (!j && !s && !m)){ alert('日付といずれかの記号を選択してください。'); return; }
+    const date = this.normalizeDate(this.inputDate.value);
+    const name = this.inputName.value.trim();
+    const amount = this.inputAmount.value.trim();
+    if(!date || !name || !amount) return alert('全て入力してください');
 
-    await this.syncFromServer(); // 競合回避：最新を取得してから編集
-    const idx = this.records.findIndex(r => r.date === date);
-    const rec = { date, jicho:j, suzumura:s, maruyama:m };
-    if(idx >= 0) this.records[idx] = rec; else this.records.push(rec);
+    const existingIndex = this.records.findIndex(r => r.date === date && r.name === name);
+    if(existingIndex >= 0){
+      this.records[existingIndex].amount = amount;
+    }else{
+      this.records.push({ date, name, amount });
+    }
 
     try{
       await this.pushAll(this.records);
-      this.form.reset(); this.setDefaultDate(); this.showResult();
+      this.render();
+      this.inputDate.value = '';
+      this.inputName.value = '';
+      this.inputAmount.value = '';
     }catch(e){
-      alert('サーバ保存に失敗しました。\n' + e.message);
+      alert('保存に失敗しました\n' + e.message);
     }
   }
 
-  // ○=1, △=0.5, ×=0
-  calcValue(v){ return v==='○' ? 1 : v==='△' ? 0.5 : 0; }
-
-  showResult(){
-    const area = this.resultArea;
-    if(!this.records.length){
-      area.innerHTML = '<div style="color:#777;">記録がありません</div>';
-      area.style.display = 'block';
-      return;
-    }
-    const list = [...this.records].sort((a,b)=> a.date.localeCompare(b.date));
-    let tj=0, ts=0, tm=0;
-    let html = '<table><tr><th>日付</th><th>時長</th><th>鈴村</th><th>丸山</th></tr>';
-    for(const r of list){
-      html += `<tr>
+  render(){
+    this.tableBody.innerHTML = '';
+    this.records.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
         <td>${this.formatYobi(r.date)}</td>
-        <td>${r.jicho||''}</td>
-        <td>${r.suzumura||''}</td>
-        <td>${r.maruyama||''}</td>
-      </tr>`;
-      tj += this.calcValue(r.jicho);
-      ts += this.calcValue(r.suzumura);
-      tm += this.calcValue(r.maruyama);
-    }
-    html += `<tr class="totals-row"><td>合計</td><td>${tj}</td><td>${ts}</td><td>${tm}</td></tr></table>`;
-    html += `<div style="margin-top:10px;font-weight:700;text-align:center;">全員分の合計（○=1, △=0.5）：${tj+ts+tm}人</div>`;
-    area.innerHTML = html;
-    area.style.display = 'block';
-  }
-
-  downloadCsv(){
-    if(!this.records.length){ alert('記録がありません。'); return; }
-    let csv = '日付(曜日),時長,鈴村,丸山\n';
-    const list = [...this.records].sort((a,b)=> a.date.localeCompare(b.date));
-    let tj=0,ts=0,tm=0;
-    for(const r of list){
-      csv += `${this.formatYobi(r.date)},${r.jicho||''},${r.suzumura||''},${r.maruyama||''}\n`;
-      tj += this.calcValue(r.jicho);
-      ts += this.calcValue(r.suzumura);
-      tm += this.calcValue(r.maruyama);
-    }
-    const all = tj+ts+tm;
-    csv += `合計,${tj},${ts},${tm}\n`;
-    csv += `全員分の合計（○=1, △=0.5）,${all},,\n`;
-
-    const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `作業人員記録_${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+        <td>${r.name}</td>
+        <td>${r.amount}</td>
+      `;
+      this.tableBody.appendChild(tr);
+    });
   }
 }
 
-new WorkRecordApp();
+document.addEventListener('DOMContentLoaded', () => new MyApp());
 </script>
+
 </body>
 </html>
