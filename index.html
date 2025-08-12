@@ -5,25 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>作業人員記録アプリ（○△×・共有対応）</title>
 <style>
-  :root{
-    --bg1:#667eea; --bg2:#764ba2; --card:#fff; --soft:#f5f6fb; --line:#ddd; --brand:#667eea;
-  }
-  body{font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif;
-    background:linear-gradient(135deg,var(--bg1) 0%,var(--bg2) 100%);min-height:100vh;padding:20px;}
-  .container{max-width:640px;margin:0 auto;background:var(--card);border-radius:16px;
-    box-shadow:0 10px 30px rgba(0,0,0,.12);padding:28px;}
-  h1{text-align:center;color:var(--brand);margin:0 0 24px;font-size:26px;}
-  .form-group{margin-bottom:16px;}
-  label{display:block;margin-bottom:8px;font-weight:700;color:#444;}
-  input[type="date"],select{
-    width:100%;padding:10px 12px;border:2px solid var(--line);border-radius:10px;font-size:16px;background:#fff;
-  }
-  .row{display:flex;gap:12px;align-items:center}
-  .row > *{flex:1}
-  .btn{width:100%;padding:12px;border:none;border-radius:10px;color:#fff;font-weight:700;cursor:pointer;margin-top:10px;
-    background:linear-gradient(135deg,var(--bg1),var(--bg2));}
-  .result-area{margin-top:24px;background:var(--soft);border-radius:12px;padding:16px;}
-  table{width:100%;border-collapse:collapse;margin-top:10px;font-size:14px;background:#fff;border-radius:8px;overflow:hidden}
+  :root{ --bg1:#667eea; --bg2:#764ba2; --card:#fff; --soft:#f6f7fb; --line:#ddd; --brand:#667eea; }
+  body{font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif;background:linear-gradient(135deg,var(--bg1),var(--bg2));min-height:100vh;padding:20px}
+  .container{max-width:680px;margin:0 auto;background:var(--card);border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.12);padding:28px}
+  h1{text-align:center;color:var(--brand);margin:0 0 24px}
+  .form-group{margin-bottom:16px}
+  label{display:block;margin-bottom:8px;font-weight:700;color:#444}
+  input[type="date"],select{width:100%;padding:10px 12px;border:2px solid var(--line);border-radius:10px;font-size:16px;background:#fff}
+  .row{display:flex;gap:12px}
+  .row>div{flex:1}
+  .btn{width:100%;padding:12px;border:none;border-radius:10px;color:#fff;font-weight:700;cursor:pointer;margin-top:10px;background:linear-gradient(135deg,var(--bg1),var(--bg2))}
+  .result-area{margin-top:24px;background:var(--soft);border-radius:12px;padding:16px}
+  table{width:100%;border-collapse:collapse;margin-top:10px;background:#fff;border-radius:8px;overflow:hidden;font-size:14px}
   th,td{border:1px solid #ccc;padding:8px;text-align:center}
   th{background:#e9edff}
   .totals-row{font-weight:700;background:#eef2ff}
@@ -70,128 +63,178 @@
   </div>
 
 <script>
-class MyApp {
+class WorkRecordApp {
   constructor(){
+    /* ★ここをあなたの値に置き換えてください */
     this.API_URL = 'https://script.google.com/macros/s/AKfycbw3yTeNBdcqUtSrbxNbeEUFf2n_FxBmUEc1JBesX9IQfP-k6a6DleZ88D8sFswwbJTA/exec';
     this.API_KEY = 'mySecretKey123';
 
     this.records = [];
-    this.tableBody = document.querySelector('#dataTable tbody');
-    this.inputDate = document.getElementById('inputDate');
-    this.inputName = document.getElementById('inputName');
-    this.inputAmount = document.getElementById('inputAmount');
-
-    document.getElementById('btnAdd').addEventListener('click', () => this.addOrUpdateRecord());
-    document.getElementById('btnSync').addEventListener('click', () => this.syncFromServer());
-
-    this.syncFromServer();
+    this.init();
   }
 
-  // 日付を統一して YYYY-MM-DD に変換
+  async init(){
+    this.cacheEls();
+    this.setDefaultDate();
+
+    this.form.addEventListener('submit', async (e)=>{ e.preventDefault(); await this.addOrUpdateRecord(); });
+    this.btnShow.addEventListener('click', ()=> this.showResult());
+    this.btnCsv.addEventListener('click', ()=> this.downloadCsv());
+
+    await this.syncFromServer();
+    this.showResult();
+  }
+
+  cacheEls(){
+    this.form = document.getElementById('workForm');
+    this.inputDate = document.getElementById('workDate');
+    this.selJ = document.getElementById('jicho');
+    this.selS = document.getElementById('suzumura');
+    this.selM = document.getElementById('maruyama');
+    this.btnShow = document.getElementById('showResultBtn');
+    this.btnCsv = document.getElementById('downloadCsvBtn');
+    this.resultArea = document.getElementById('resultArea');
+  }
+
+  setDefaultDate(){
+    const today = new Date().toISOString().split('T')[0];
+    this.inputDate.value = today;
+  }
+
+  /* === 日付ユーティリティ === */
+
+  // 何が来ても YYYY-MM-DD に統一
   normalizeDate(s){
     if (!s) return '';
-    // すでに YYYY-MM-DD
-    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-    // YYYY/MM/DD → YYYY-MM-DD
-    if (/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(s)) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;                // 既にOK
+    if (/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(s)) {                   // YYYY/MM/DD
       const [y,m,d] = s.split('/');
       return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     }
-    // Date文字列を解釈
-    const d = new Date(s);
+    const d = new Date(s);                                       // 英語長文など
     if (!isNaN(d)) {
-      const y = d.getFullYear();
-      const m = String(d.getMonth()+1).padStart(2,'0');
-      const day = String(d.getDate()).padStart(2,'0');
+      const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
       return `${y}-${m}-${day}`;
     }
-    return s; // 不明形式はそのまま
+    return s;                                                     // どうしても無理なら原文
   }
 
-  // 曜日付き表示
+  // 表示用：YYYY/MM/DD (曜)
   formatYobi(yyyyMmDd){
     const norm = this.normalizeDate(yyyyMmDd);
-    const [y,m,d] = norm.split('-').map(Number);
+    const [y,m,d] = (norm||'').split('-').map(Number);
     if(!y||!m||!d) return yyyyMmDd || '';
     const dt = new Date(y, m-1, d);
     const w = '日月火水木金土'[dt.getDay()];
     return `${y}/${String(m).padStart(2,'0')}/${String(d).padStart(2,'0')} (${w})`;
   }
 
+  /* === サーバ通信 === */
+
   async fetchAll(){
-    const res = await fetch(`${this.API_URL}?key=${this.API_KEY}`);
-    if(!res.ok) throw new Error('HTTPエラー');
-    return await res.json();
+    const url = `${this.API_URL}?action=read&key=${encodeURIComponent(this.API_KEY)}`;
+    const res = await fetch(url, { method:'GET' });
+    if(!res.ok){
+      const t = await res.text();
+      throw new Error(`GET ${res.status} ${res.statusText} :: ${t.slice(0,200)}`);
+    }
+    const data = await res.json();
+    return Array.isArray(data.records) ? data.records : [];
   }
 
-  async pushAll(data){
-    const res = await fetch(this.API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key: this.API_KEY, records: data })
+  async pushAll(records){
+    const url = `${this.API_URL}?key=${encodeURIComponent(this.API_KEY)}`;
+    const res = await fetch(url, {
+      method:'POST',
+      headers:{ 'Content-Type':'text/plain' }, // プリフライト回避
+      body: JSON.stringify({ records })
     });
-    if(!res.ok) throw new Error('HTTPエラー');
-    return await res.json();
+    if(!res.ok){
+      const t = await res.text();
+      throw new Error(`POST ${res.status} ${res.statusText} :: ${t.slice(0,200)}`);
+    }
+    return res.json();
   }
 
+  // 読み込んだら即日付正規化→必要なら書き戻し（以降崩れない）
   async syncFromServer(){
     try{
       const fetched = await this.fetchAll();
       const normalized = fetched.map(r => ({ ...r, date: this.normalizeDate(r.date) }));
-
-      // サーバの日付が変わっていたら書き戻す
-      const changed =
-        JSON.stringify(fetched.map(r=>r.date)) !== JSON.stringify(normalized.map(r=>r.date));
-      if (changed) {
-        await this.pushAll(normalized);
-      }
+      const changed = JSON.stringify(fetched.map(r=>r.date)) !== JSON.stringify(normalized.map(r=>r.date));
+      if (changed) { await this.pushAll(normalized); }
       this.records = normalized;
-      this.render();
     }catch(e){
       alert('サーバから読み込みに失敗しました。\n' + e.message);
     }
   }
 
   async addOrUpdateRecord(){
-    const date = this.normalizeDate(this.inputDate.value);
-    const name = this.inputName.value.trim();
-    const amount = this.inputAmount.value.trim();
-    if(!date || !name || !amount) return alert('全て入力してください');
+    const date = this.normalizeDate(this.inputDate.value); // ★ここで統一
+    const j = this.selJ.value, s = this.selS.value, m = this.selM.value;
+    if(!date || (!j && !s && !m)){ alert('日付といずれかの記号を選択してください。'); return; }
 
-    const existingIndex = this.records.findIndex(r => r.date === date && r.name === name);
-    if(existingIndex >= 0){
-      this.records[existingIndex].amount = amount;
-    }else{
-      this.records.push({ date, name, amount });
-    }
+    await this.syncFromServer(); // 競合回避
+    const idx = this.records.findIndex(r => r.date === date);
+    const rec = { date, jicho:j, suzumura:s, maruyama:m };
+    if(idx >= 0) this.records[idx] = rec; else this.records.push(rec);
 
     try{
       await this.pushAll(this.records);
-      this.render();
-      this.inputDate.value = '';
-      this.inputName.value = '';
-      this.inputAmount.value = '';
+      this.form.reset(); this.setDefaultDate(); this.showResult();
     }catch(e){
-      alert('保存に失敗しました\n' + e.message);
+      alert('サーバ保存に失敗しました。\n' + e.message);
     }
   }
 
-  render(){
-    this.tableBody.innerHTML = '';
-    this.records.forEach(r => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
+  // ○=1, △=0.5, ×=0
+  calcValue(v){ return v==='○'?1 : v==='△'?0.5 : 0; }
+
+  showResult(){
+    const area = this.resultArea;
+    if(!this.records.length){
+      area.innerHTML = '<div style="color:#777;">記録がありません</div>';
+      area.style.display = 'block'; return;
+    }
+    const list = [...this.records].sort((a,b)=> a.date.localeCompare(b.date));
+    let tj=0, ts=0, tm=0;
+    let html = '<table><tr><th>日付</th><th>時長</th><th>鈴村</th><th>丸山</th></tr>';
+    for(const r of list){
+      html += `<tr>
         <td>${this.formatYobi(r.date)}</td>
-        <td>${r.name}</td>
-        <td>${r.amount}</td>
-      `;
-      this.tableBody.appendChild(tr);
-    });
+        <td>${r.jicho||''}</td>
+        <td>${r.suzumura||''}</td>
+        <td>${r.maruyama||''}</td>
+      </tr>`;
+      tj += this.calcValue(r.jicho);
+      ts += this.calcValue(r.suzumura);
+      tm += this.calcValue(r.maruyama);
+    }
+    html += `<tr class="totals-row"><td>合計</td><td>${tj}</td><td>${ts}</td><td>${tm}</td></tr></table>`;
+    html += `<div style="margin-top:10px;font-weight:700;text-align:center;">全員分の合計（○=1, △=0.5）：${tj+ts+tm}人</div>`;
+    area.innerHTML = html; area.style.display = 'block';
+  }
+
+  downloadCsv(){
+    if(!this.records.length){ alert('記録がありません。'); return; }
+    let csv = '日付(曜日),時長,鈴村,丸山\n';
+    const list = [...this.records].sort((a,b)=> a.date.localeCompare(b.date));
+    let tj=0,ts=0,tm=0;
+    for(const r of list){
+      csv += `${this.formatYobi(r.date)},${r.jicho||''},${r.suzumura||''},${r.maruyama||''}\n`;
+      tj += this.calcValue(r.jicho); ts += this.calcValue(r.suzumura); tm += this.calcValue(r.maruyama);
+    }
+    const all = tj+ts+tm;
+    csv += `合計,${tj},${ts},${tm}\n`;
+    csv += `全員分の合計（○=1, △=0.5）,${all},,\n`;
+
+    const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `作業人員記録_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   }
 }
-
-document.addEventListener('DOMContentLoaded', () => new MyApp());
+new WorkRecordApp();
 </script>
-
 </body>
 </html>
