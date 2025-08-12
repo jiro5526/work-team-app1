@@ -5,75 +5,88 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>作業人員記録アプリ（○△×・共有対応）</title>
 <style>
+  :root{
+    --bg1:#667eea; --bg2:#764ba2; --card:#fff; --soft:#f5f6fb; --line:#ddd; --brand:#667eea;
+  }
   body{font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif;
-    background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;padding:20px;}
-  .container{max-width:600px;margin:0 auto;background:#fff;border-radius:15px;
-    box-shadow:0 10px 30px rgba(0,0,0,.1);padding:30px;}
-  h1{text-align:center;color:#667eea;margin-bottom:30px;}
-  .form-group{margin-bottom:20px;}
-  label{display:block;margin-bottom:8px;font-weight:700;color:#555;}
-  input[type="date"]{width:100%;padding:12px;border:2px solid #ddd;border-radius:8px;font-size:16px;margin-bottom:10px;}
-  .select-group{display:flex;gap:10px;align-items:center;margin-bottom:10px;}
-  select{padding:8px 16px;border-radius:8px;border:2px solid #ddd;font-size:16px;}
-  .btn{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;padding:12px 25px;border:none;
-    border-radius:8px;cursor:pointer;font-size:16px;font-weight:700;width:100%;margin-bottom:10px;}
-  .result-area{margin-top:30px;background:#f8f9fa;border-radius:10px;padding:20px;text-align:center;}
-  .result-table{width:100%;border-collapse:collapse;margin-top:15px;}
-  .result-table th,.result-table td{border:1px solid #ccc;padding:8px 4px;text-align:center;}
-  .result-table th{background:#e3e7fa;}
-  .totals-row{font-weight:700;background:#e3e7fa;}
+    background:linear-gradient(135deg,var(--bg1) 0%,var(--bg2) 100%);min-height:100vh;padding:20px;}
+  .container{max-width:640px;margin:0 auto;background:var(--card);border-radius:16px;
+    box-shadow:0 10px 30px rgba(0,0,0,.12);padding:28px;}
+  h1{text-align:center;color:var(--brand);margin:0 0 24px;font-size:26px;}
+  .form-group{margin-bottom:16px;}
+  label{display:block;margin-bottom:8px;font-weight:700;color:#444;}
+  input[type="date"],select{
+    width:100%;padding:10px 12px;border:2px solid var(--line);border-radius:10px;font-size:16px;background:#fff;
+  }
+  .row{display:flex;gap:12px;align-items:center}
+  .row > *{flex:1}
+  .btn{width:100%;padding:12px;border:none;border-radius:10px;color:#fff;font-weight:700;cursor:pointer;margin-top:10px;
+    background:linear-gradient(135deg,var(--bg1),var(--bg2));}
+  .result-area{margin-top:24px;background:var(--soft);border-radius:12px;padding:16px;}
+  table{width:100%;border-collapse:collapse;margin-top:10px;font-size:14px;background:#fff;border-radius:8px;overflow:hidden}
+  th,td{border:1px solid #ccc;padding:8px;text-align:center}
+  th{background:#e9edff}
+  .totals-row{font-weight:700;background:#eef2ff}
 </style>
 </head>
 <body>
-<div class="container">
-  <h1>作業人員記録アプリ（○△×対応）</h1>
-  <form id="workForm">
-    <div class="form-group">
-      <label for="workDate">作業日 *</label>
-      <input type="date" id="workDate" required>
-    </div>
-    <div class="form-group select-group">
-      <label>時長</label>
-      <select id="jicho">
-        <option value="">選択</option><option value="○">○</option><option value="△">△</option><option value="×">×</option>
-      </select>
-    </div>
-    <div class="form-group select-group">
-      <label>鈴村</label>
-      <select id="suzumura">
-        <option value="">選択</option><option value="○">○</option><option value="△">△</option><option value="×">×</option>
-      </select>
-    </div>
-    <div class="form-group select-group">
-      <label>丸山</label>
-      <select id="maruyama">
-        <option value="">選択</option><option value="○">○</option><option value="△">△</option><option value="×">×</option>
-      </select>
-    </div>
-    <button type="submit" class="btn">記録する</button>
-  </form>
-  <button id="showResultBtn" class="btn">結果表示</button>
-  <button id="downloadCsvBtn" class="btn">スプレッドシート出力</button>
-  <div class="result-area" id="resultArea" style="display:none;"></div>
-</div>
+  <div class="container">
+    <h1>作業人員記録アプリ（○△×対応）</h1>
+
+    <form id="workForm">
+      <div class="form-group">
+        <label for="workDate">作業日 *</label>
+        <input type="date" id="workDate" required>
+      </div>
+
+      <div class="form-group row">
+        <div>
+          <label>時長</label>
+          <select id="jicho">
+            <option value="">選択</option><option value="○">○</option><option value="△">△</option><option value="×">×</option>
+          </select>
+        </div>
+        <div>
+          <label>鈴村</label>
+          <select id="suzumura">
+            <option value="">選択</option><option value="○">○</option><option value="△">△</option><option value="×">×</option>
+          </select>
+        </div>
+        <div>
+          <label>丸山</label>
+          <select id="maruyama">
+            <option value="">選択</option><option value="○">○</option><option value="△">△</option><option value="×">×</option>
+          </select>
+        </div>
+      </div>
+
+      <button type="submit" class="btn">記録する</button>
+    </form>
+
+    <button id="showResultBtn" class="btn">結果表示</button>
+    <button id="downloadCsvBtn" class="btn">スプレッドシート出力</button>
+
+    <div id="resultArea" class="result-area" style="display:none;"></div>
+  </div>
 
 <script>
 class WorkRecordApp {
-  constructor() {
-    // ▼あなたのGAS /exec URL と キーに置き換えてください
-   this.API_URL = 'https://script.google.com/macros/s/AKfycbw3yTeNBdcqUtSrbxNbeEUFf2n_FxBmUEc1JBesX9IQfP-k6a6DleZ88D8sFswwbJTA/exec';
-this.API_KEY = 'mySecretKey123';
+  constructor(){
+    // ★ここをあなたの値に置き換えてください（/exec と APIキー）
+    this.API_URL = 'https://script.google.com/macros/s/AKfycbw3yTeNBdcqUtSrbxNbeEUFf2n_FxBmUEc1JBesX9IQfP-k6a6DleZ88D8sFswwbJTA/exec';
+    this.API_KEY = 'mySecretKey123';
 
     this.records = [];
     this.init();
   }
 
-  async init() {
+  async init(){
     this.cacheEls();
     this.setDefaultDate();
-    this.form.addEventListener('submit', async (e) => { e.preventDefault(); await this.addOrUpdateRecord(); });
-    this.btnShow.addEventListener('click', () => this.showResult());
-    this.btnCsv.addEventListener('click', () => this.downloadCsv());
+
+    this.form.addEventListener('submit', async (e)=>{ e.preventDefault(); await this.addOrUpdateRecord(); });
+    this.btnShow.addEventListener('click', ()=> this.showResult());
+    this.btnCsv.addEventListener('click', ()=> this.downloadCsv());
 
     await this.syncFromServer();
     this.showResult();
@@ -95,12 +108,24 @@ this.API_KEY = 'mySecretKey123';
     this.inputDate.value = today;
   }
 
+  // --- 日付を「YYYY/MM/DD (曜)」で返す（r.dateは"YYYY-MM-DD"想定） ---
+  formatYobi(yyyyMmDd){
+    const [y,m,d] = (yyyyMmDd||'').split('-').map(Number);
+    if(!y||!m||!d) return yyyyMmDd || '';
+    const dt = new Date(y, m-1, d);
+    const w = '日月火水木金土'[dt.getDay()];
+    const mm = String(m).padStart(2,'0');
+    const dd = String(d).padStart(2,'0');
+    return `${y}/${mm}/${dd} (${w})`;
+  }
+
+  // --- サーバ通信 ---
   async fetchAll(){
     const url = `${this.API_URL}?action=read&key=${encodeURIComponent(this.API_KEY)}`;
-    const res = await fetch(url, { method: 'GET' });
+    const res = await fetch(url, { method:'GET' });
     if(!res.ok){
       const t = await res.text();
-      throw new Error(`GET failed: ${res.status} ${res.statusText} :: ${t.slice(0,200)}`);
+      throw new Error(`GET ${res.status} ${res.statusText} :: ${t.slice(0,200)}`);
     }
     const data = await res.json();
     return Array.isArray(data.records) ? data.records : [];
@@ -109,13 +134,13 @@ this.API_KEY = 'mySecretKey123';
   async pushAll(records){
     const url = `${this.API_URL}?key=${encodeURIComponent(this.API_KEY)}`;
     const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' }, // プリフライト回避
+      method:'POST',
+      headers:{ 'Content-Type':'text/plain' }, // プリフライト回避
       body: JSON.stringify({ records })
     });
     if(!res.ok){
       const t = await res.text();
-      throw new Error(`POST failed: ${res.status} ${res.statusText} :: ${t.slice(0,200)}`);
+      throw new Error(`POST ${res.status} ${res.statusText} :: ${t.slice(0,200)}`);
     }
     return res.json();
   }
@@ -133,9 +158,9 @@ this.API_KEY = 'mySecretKey123';
     const j = this.selJ.value, s = this.selS.value, m = this.selM.value;
     if(!date || (!j && !s && !m)){ alert('日付といずれかの記号を選択してください。'); return; }
 
-    await this.syncFromServer(); // 直前に最新取り込み
+    await this.syncFromServer(); // 競合回避：最新を取得してから編集
     const idx = this.records.findIndex(r => r.date === date);
-    const rec = { date, jicho: j, suzumura: s, maruyama: m };
+    const rec = { date, jicho:j, suzumura:s, maruyama:m };
     if(idx >= 0) this.records[idx] = rec; else this.records.push(rec);
 
     try{
@@ -147,56 +172,58 @@ this.API_KEY = 'mySecretKey123';
   }
 
   // ○=1, △=0.5, ×=0
-  calcValue(mark){ return mark==='○'?1 : mark==='△'?0.5 : 0; }
-
-  // 追加：曜日付きの整形
-  fmtDateYobi(yyyyMmDd){
-    // タイムゾーンずれ防止のため 00:00 固定
-    const d = new Date(`${yyyyMmDd}T00:00:00`);
-    if (isNaN(d)) return yyyyMmDd; // 不正ならそのまま返す
-    const w = ['日','月','火','水','木','金','土'][d.getDay()];
-    return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日(${w})`;
-  }
+  calcValue(v){ return v==='○' ? 1 : v==='△' ? 0.5 : 0; }
 
   showResult(){
     const area = this.resultArea;
     if(!this.records.length){
-      area.innerHTML = '<div style="color:#888;">記録がありません</div>';
-      area.style.display = 'block'; return;
+      area.innerHTML = '<div style="color:#777;">記録がありません</div>';
+      area.style.display = 'block';
+      return;
     }
     const list = [...this.records].sort((a,b)=> a.date.localeCompare(b.date));
-    let j=0,s=0,m=0;
-    let html = '<table class="result-table"><tr><th>日付</th><th>時長</th><th>鈴村</th><th>丸山</th></tr>';
+    let tj=0, ts=0, tm=0;
+    let html = '<table><tr><th>日付</th><th>時長</th><th>鈴村</th><th>丸山</th></tr>';
     for(const r of list){
-      html += `<tr><td>${this.fmtDateYobi(r.date)}</td><td>${r.jicho||''}</td><td>${r.suzumura||''}</td><td>${r.maruyama||''}</td></tr>`;
-      j += this.calcValue(r.jicho); s += this.calcValue(r.suzumura); m += this.calcValue(r.maruyama);
+      html += `<tr>
+        <td>${this.formatYobi(r.date)}</td>
+        <td>${r.jicho||''}</td>
+        <td>${r.suzumura||''}</td>
+        <td>${r.maruyama||''}</td>
+      </tr>`;
+      tj += this.calcValue(r.jicho);
+      ts += this.calcValue(r.suzumura);
+      tm += this.calcValue(r.maruyama);
     }
-    const all = j+s+m;
-    html += `<tr class="totals-row"><td>合計</td><td>${j}</td><td>${s}</td><td>${m}</td></tr></table>`;
-    html += `<div style="margin-top:15px;font-weight:bold;">全員分の合計（○=1, △=0.5）：${all}人</div>`;
-    area.innerHTML = html; area.style.display = 'block';
+    html += `<tr class="totals-row"><td>合計</td><td>${tj}</td><td>${ts}</td><td>${tm}</td></tr></table>`;
+    html += `<div style="margin-top:10px;font-weight:700;text-align:center;">全員分の合計（○=1, △=0.5）：${tj+ts+tm}人</div>`;
+    area.innerHTML = html;
+    area.style.display = 'block';
   }
 
   downloadCsv(){
     if(!this.records.length){ alert('記録がありません。'); return; }
     let csv = '日付(曜日),時長,鈴村,丸山\n';
     const list = [...this.records].sort((a,b)=> a.date.localeCompare(b.date));
-    let j=0,s=0,m=0;
+    let tj=0,ts=0,tm=0;
     for(const r of list){
-      csv += `${this.fmtDateYobi(r.date)},${r.jicho||''},${r.suzumura||''},${r.maruyama||''}\n`;
-      j += this.calcValue(r.jicho); s += this.calcValue(r.suzumura); m += this.calcValue(r.maruyama);
+      csv += `${this.formatYobi(r.date)},${r.jicho||''},${r.suzumura||''},${r.maruyama||''}\n`;
+      tj += this.calcValue(r.jicho);
+      ts += this.calcValue(r.suzumura);
+      tm += this.calcValue(r.maruyama);
     }
-    const all = j+s+m;
-    csv += `合計,${j},${s},${m}\n`;
+    const all = tj+ts+tm;
+    csv += `合計,${tj},${ts},${tm}\n`;
     csv += `全員分の合計（○=1, △=0.5）,${all},,\n`;
 
     const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url;
-    a.download = `作業人員記録_${new Date().toISOString().split('T')[0]}.csv`;
+    const a = document.createElement('a');
+    a.href = url; a.download = `作業人員記録_${new Date().toISOString().split('T')[0]}.csv`;
     document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   }
 }
+
 new WorkRecordApp();
 </script>
 </body>
